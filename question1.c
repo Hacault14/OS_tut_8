@@ -1,13 +1,8 @@
-#include <stddef.h>
-#include <stdlib.h>
 #include <stdio.h>
-#include <stdbool.h>
-#include <unistd.h>
-#include <signal.h>
+#include <stdlib.h>
 #include <string.h>
-#include <sys/types.h>
-#include <sys/wait.h>
 
+// Define the process structure
 struct proc {
     char parent[256];
     char name[256];
@@ -15,80 +10,81 @@ struct proc {
     int memory;
 };
 
-struct proc_tree {
-    struct proc;
-    int key_value;
-    struct proc_tree *left;
-    struct proc_tree *right;
+// Define the binary tree node structure
+struct node {
+    struct proc p;
+    struct node *left;
+    struct node *right;
 };
 
-struct proc_tree *search(int key, struct proc_tree *leaf) {
-    if (leaf != 0) {
-        if(key==leaf->key_value)
-        {
-            return leaf;
-        }
-        else if(key<leaf->key_value)
-        {
-            return search(key, leaf->left);
-        }
-        else
-        {
-            return search(key, leaf->right);
-        }
+// Insert a new node into the binary tree
+void insert(struct node **root, struct proc p) {
+    // If the root is empty, create a new node and insert the process data
+    if (*root == NULL) {
+        *root = (struct node*) malloc(sizeof(struct node));
+        (*root)->p = p;
+        (*root)->left = NULL;
+        (*root)->right = NULL;
     }
-    else return 0;
-}
-
-insert(int key, struct proc_tree **leaf) {
-    if (*leaf == 0)
-    {
-        *leaf = (struct proc_tree*) malloc(sizeof(struct proc_tree));
-        (*leaf)->key_value = key;
-        (*leaf)->left = 0;    
-        (*leaf)->right = 0;  
-    }
-    else if(key < (*leaf)->key_value)
-    {
-        insert(key, &(*leaf)->left);
-    }
-    else if(key > (*leaf)->key_value)
-    {
-        insert(key, &(*leaf)->right);
+    // Otherwise, compare the name of the process to the current node's name
+    else {
+        int cmp = strcmp(p.name, (*root)->p.name);
+        // If the process name is less than the current node's name, insert into the left subtree
+        if (cmp < 0) {
+            insert(&((*root)->left), p);
+        }
+        // If the process name is greater than the current node's name, insert into the right subtree
+        else if (cmp > 0) {
+            insert(&((*root)->right), p);
+        }
     }
 }
 
-int main (void) {
-    struct proc proc1, proc2, proc3, proc4, proc5, proc6, proc7;
-    struct proc_tree tree1;
-    FILE *file = fopen("process_tree.txt", "r");
-    char input[30];
-    while(fscanf(file,"%s",input) != EOF){
-        char *token;
-        token = strtok(input,",");
-        int loop = 0;
-        while (token != NULL) {
-            if (loop == 0){
-                strcpy(proc1.parent,token);
-                loop++;
-            }
-            else if (loop == 1){
-                strcpy(proc1.name,token);
-                loop++;
-            }
-            else if (loop == 2){
-                proc1.priority = atoi(token);
-                loop++;
-            }
-            else if (loop == 3){
-                proc1.memory = atoi(token);
-                loop++;
-            }
-            token = strtok(NULL, ",");
-        }
-        insert(0,proc1.parent);
-        insert(0,proc1.name);
-        insert(0,proc1.priority);
-        insert(0,proc1.memory);
+// Traverse the binary tree in-order and print the process information
+void inorder_traversal(struct node *root) {
+    if (root != NULL) {
+        inorder_traversal(root->left);
+        printf("Parent: %s, Name: %s, Priority: %d, Memory: %d MB\n", root->p.parent, root->p.name, root->p.priority, root->p.memory);
+        inorder_traversal(root->right);
     }
+}
+
+int main() {
+    // Open the process_tree.txt file for reading
+    FILE *fp = fopen("process_tree.txt", "r");
+    if (fp == NULL) {
+        printf("Error opening file\n");
+        return 1;
+    }
+
+    // Initialize the root of the binary tree
+    struct node *root = NULL;
+
+    // Read each line of the file and create a new process node for each line
+    char line[1024];
+    while (fgets(line, sizeof(line), fp)) {
+        // Parse the comma-separated values in the line
+        char parent[256];
+        char name[256];
+        int priority, memory;
+        sscanf(line, "%[^,],%[^,],%d,%d", parent, name, &priority, &memory);
+
+        // Create a new process structure with the parsed values
+        struct proc p;
+        strcpy(p.parent, parent);
+        strcpy(p.name, name);
+        p.priority = priority;
+        p.memory = memory;
+
+        // Insert the new process node into the binary tree
+        insert(&root, p);
+    }
+
+    // Close the file
+    fclose(fp);
+
+    // Traverse the binary tree in-order and print the process information
+    inorder_traversal(root);
+
+    return 0;
 }
